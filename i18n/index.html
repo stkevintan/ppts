@@ -1,0 +1,266 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <title>reveal.js</title>
+
+    <link rel="stylesheet" href="css/reveal.css">
+    <link rel="stylesheet" href="css/theme/serif.css">
+
+    <!-- Theme used for syntax highlighting of code -->
+    <link rel="stylesheet" href="lib/css/zenburn.css">
+
+    <!-- Printing and PDF exports -->
+    <script>
+      var link = document.createElement( 'link' );
+      link.rel = 'stylesheet';
+      link.type = 'text/css';
+      link.href = window.location.search.match( /print-pdf/gi ) ? 'css/print/pdf.css' : 'css/print/paper.css';
+      document.getElementsByTagName( 'head' )[0].appendChild( link );
+    </script>
+  </head>
+  <body>
+    <div class="reveal" style="font-family:Fira Code, Palatino Linotype, Book Antiqua, Palatino, FreeSerif, serif">
+      <div class="slides">
+        <section>
+          <h2>国际化的那些事</h2>
+          <p style="color: #888">谭凯文</p>
+        </section>
+        <section>
+          <h3>What</h3>
+          <ul>
+            <li class="fragment">Basic: 应用多语言</li>
+            <li class="fragment">Extra：日期，金额，单复数，rtl...</li>
+          </ul>
+          <p class="fragment">What about React-intl?</p>
+          <p class="fragment" style="color: #E57373">too complex~~~~~~~</p>
+        </section>
+        <section>
+          <section>
+            <h3>How</h3>
+            <ul>
+              <li class="fragment">如何加载locale ? 
+                <div class="green fragment"><small>=> import / import() / 异步cdn </small></div> 
+              </li>
+              <li class="fragment">如何替换locale  ? 
+                <div class="green fragment"><small>=> idiomatic-React way /  imperative way </small></div>
+              </li>
+              <li class="fragment">如何如何切换locale ? 
+                <div class="green fragment"><small>=> window / redux state tree / props? </small></div>
+              </li>
+            </ul>
+          </section>
+          <section>
+            <h4>Idiomatic-React Way</h4>
+            <pre class="fragment"><code data-trim>
+              &lt;FormattedMessage
+                id='app.greeting'
+                description='Greeting to welcome the user to the app'
+                defaultMessage='Hello, {name}!'
+                values={{name: 'Eric'}}
+              />
+            </code></pre>
+            <pre class="fragment"><code data-trim>
+                &lt;FormattedDate
+                  value={new Date(1459832991883)}
+                  year='numeric'
+                  month='long'
+                  day='2-digit'
+                />
+              </code></pre>
+            <small style="margin-top: 20px"><span class="fragment">ForamttedHTML</span><span class="fragment"> / FormattedPlural</span><span class="fragment"> / FormatTime ...</span></small>
+          </section>
+          <section>
+            <h4>Imperative Way</h4>
+            <pre class="fragment"><code data-trim>
+                import React, {PropTypes} from 'react';
+                import {injectIntl, intlShape} from 'react-intl';
+                
+                const Component = ({date, intl}) => (
+                  &lt;span>{intl.formatDate(date)}&lt;/span>
+                );
+                
+                Component.propTypes = {
+                  date: PropTypes.any.isRequired,
+                  intl: intlShape.isRequired,
+                };
+                
+                export default injectIntl(Component);
+            </code></pre>
+          </section>
+          <section>
+            <h4>Pros and Cons</h4>
+            <p style="color:#888">Idiomatic-React Way</p>
+            <div style="text-align: left; display: inline-block;">
+              <div class="green fragment">✓ 局部重绘, 完全支持热切换,支持富文本 <a target="_blank" href="https://github.com/yahoo/react-intl/wiki/Components#why-components">Why Components？</a></div> 
+              <div class="red fragment">✗ 写的太多，某些必须使用String的情况无法使用</div>
+              <img class="fragment" src="img/WX20181029-161808@2x.png" />
+            </div>
+          </section>
+          <section>
+              <h4>Pros and Cons</h4>
+              <p style="color:#888">Imperative Way</p>
+              <div style="text-align: left; display: inline-block;">
+                <div class="green fragment">✓ 兼容性好（String）, 写的少</div>
+                <div class="red fragment">✗ 全局重绘, 不应该所有组件都挂在State上, 不支持富文本</div>
+                <img style="display:block; width: 700px" class="fragment" src="img/WX20181029-163801@2x.png" />
+              </div>
+          </section>
+        </section>
+
+        <section>
+          <section>
+          <h3>Option #1</h3>
+          <ul>
+            <li class="fragment">按需加载：import() or cdn</li>
+            <li class="fragment">替换方案：Component && Function</li>
+            <li class="fragment">切换方案：redux state</li>
+          </ul>
+          </section>
+          <section>
+            <small>en_US.json</small>
+            <pre><code data-trim>
+                {
+                  "aeolus_id_day": "day",
+                  "aeolus_id_server_error": "Server error",
+                  "aeolus_id_404": "Page not found",
+                  "aeolus_id_product_list": "Product list",
+                  "aeolus_id_174": "Query cost $1ms,scatter chart points exceed $2, $3 random points have been selected"
+                }
+            </code></pre>
+          </section>
+          <section>
+              <small>&lt;FormatMessage/></small>
+              <pre><code data-trim>
+                  @connect(({ base }) => ({ base }))
+                  export default class FormatMessage extends Component {
+                    render() {
+                      const { id, base, origin, transform } = this.props
+                      let translated = base.localeData[id] || origin || id
+                      if (typeof transform === 'function') {
+                        translated = transform(translated)
+                      }
+                      return translated
+                    }
+                  }
+                  //...
+                  &lt;FormatMessage 
+                    id="aeolus_id_delete" 
+                    transform={(text) => text.replace('$1', that.props.name)} 
+                  />
+              </code></pre>
+            </section>
+            <section>
+              <small>this.getFormatMessage</small>
+              <pre><code data-trim>
+                // ...
+                getFormatMessage = (id, origin) => {
+                  return this.props.base.localeData[id] || origin || id
+                }
+                // ...
+                render(){
+                  return <div>
+                    30 {this.getFormatMessage('aeolus_id_day', '天')}
+                  </div>
+                }
+              </code></pre>
+            </section>
+        </section>
+        <section>
+          <section data-background-color="#009688">
+            <h3 style="color:#fff">Improvement</h3>
+            <p style="color: #fff" class="Fragment">Problem: 如何在模板中插入非String ？</p>
+          </section>
+          <section>
+            
+            <img width="600px" src="img/WX20181029-163801@2x.png" />
+            <img src="img/WX20181029-172820@2x.png" />
+          </section>
+          <section>
+            <p>Solution: 返回一个Dom Node</p>
+            <p class="fragment red">✗ Imperative way    &nbsp;&nbsp;&nbsp;&nbsp; </p>
+            <p class="fragment green">✓ Idiomatic-React Way</p>
+          </section>
+          <section>
+            <pre><code data-trim>
+                @connect(({ base }) => ({ base }))
+                export default class FormatMessage extends Component {
+                  render() {
+                    const { id, origin, args } = this.props
+                    const text = this.props.base.localeData[id] || origin || id
+                    const rets = text.split(/\$\d+/g)
+                    if (rets.length <= 1) return text
+                    const arr = [ rets[0] ]
+                    for (let i = 1; i < rets.length; i++) {
+                      arr.push(args[i - 1] || '')
+                      arr.push(rets[i])
+                    }
+                    return &lt;Fragment>
+                      {arr.map((elem,k)=> &lt;Fragment key={k}>{elem}&lt;/Fragment>)}
+                    &lt;/Fragment>
+                  }
+                }
+            </code></pre>
+          </section>
+        </section>
+        <section>
+        <section data-background-color="#673AB7">
+            <h3 style="color: #fff">Further Idea</h3>
+            <ul style="color: #fff">
+              <li class="fragment">统一Imperative Way && Idiomatic-React Way ?</li>
+              <li class="fragment">HOC形式的注入形式是否能更好 ?</li>
+              <li class="fragment">非Redux && 非React-intl的项目 ?</li>
+            </ul>
+          </section>
+          <section>
+            <h3>Solution</h3>
+            <ul>
+              <li class="fragment">Render Callback Pattern</li>
+              <li class="fragment">React new Context API</li>
+            </ul>
+          </section>
+          <section>
+            <p>Idiomatic-React如何支持placeholder ?</p>
+            <pre><code data-trim>
+              &lt;FormatMessage>
+                {(formatter) => (
+                  &lt;Input
+                    placeholder={formatter('aeolus_id_94',"请输入展示名称")}
+                    onChange={(e) => this.updateDimMet({ name: e.target.value }, index)}
+                  />
+                )}
+              &lt;/FormatMessage>
+            </code></pre>
+          </section>
+        </section>
+        <section data-background-color="#03A9F4">
+          <h3 style="color: #fff">Demo</h3>
+          <a style="color: #fff" target="_blank" href="https://codesandbox.io/s/y2lwvqmyqj">https://codesandbox.io/s/y2lwvqmyqj</a>
+        </section>
+      </div>
+    </div>
+
+    <script src="lib/js/head.min.js"></script>
+    <script src="js/reveal.js"></script>
+
+    <script>
+      // More info about config & dependencies:
+      // - https://github.com/hakimel/reveal.js#configuration
+      // - https://github.com/hakimel/reveal.js#dependencies
+      Reveal.initialize({
+        slideNumber: true,
+        history: true,
+        mouseWheel: true,
+        transition: 'convex',
+        dependencies: [
+          { src: 'plugin/markdown/marked.js' },
+          { src: 'plugin/markdown/markdown.js' },
+          { src: 'plugin/notes/notes.js', async: true },
+          { src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } }
+        ]
+      });
+    </script>
+  </body>
+</html>
