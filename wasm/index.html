@@ -1,0 +1,1001 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+  <title>WebAssembly Dive in</title>
+
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/reveal.css">
+  <link rel="stylesheet" href="css/theme/solarized.css">
+
+  <!-- Theme used for syntax highlighting of code -->
+  <link rel="stylesheet" href="lib/css/zenburn.css">
+
+  <style>
+    h2,
+    h1 {
+      text-transform: none !important;
+    }
+
+    section {
+      text-align: left;
+    }
+
+    .full>pre {
+      /* width: 00px; */
+      /* height: 500px; */
+      font-size: 15px;
+      display: absolute;
+      top: -20%;
+      left: -10%;
+      width: 120%;
+      height: 120%;
+    }
+
+    .small-li li {
+      font-size: 80%;
+    }
+  </style>
+  <!-- Printing and PDF exports -->
+  <script>
+    var link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.type = 'text/css';
+    link.href = window.location.search.match(/print-pdf/gi) ? 'css/print/pdf.css' : 'css/print/paper.css';
+    document.getElementsByTagName('head')[0].appendChild(link);
+  </script>
+</head>
+
+<body>
+  <div class="reveal">
+    <div class="slides">
+      <section data-background="#448aff" data-background-transition="zoom">
+        <h1 style="color:#fff">WebAssembly Dive In</h1>
+        <span style="color:#fff"> By Kevin Tan</span>
+      </section>
+      <section data-background="#43a047">
+        <h2 style="color:#fff">Background</h2>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+            ## 编译原理
+            1. 词法分析器： Lexer -> 生成Token（AdditiveExpression -> a = 1 + 2)
+            2. 语法分析器： Parser -> 表达式非终结符 -> 终结符(S -> veE / S -> veEpd / S -> vedpd)
+            3. 弱类型：类型在运行时推断
+            4. 强类型：无须推断，可以AOT优化，直接生成二进制机器码
+          </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+            ## V8 Compiler
+            ![](https://raw.githubusercontent.com/stkevintan/pico/master/81fb4160.png)
+          </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+            ## Just-in-Time
+            即时编译(JIT)是一种将动态解释与静态编译结合的运行方式。
+          </script>
+      </section>
+      <section>
+        <iframe data-preload data-src="https://codesandbox.io/embed/jit-mv7tb?fontsize=14" title="JIT"
+          allow="geolocation; microphone; camera; midi; vr; accelerometer; gyroscope; payment; ambient-light-sensor; encrypted-media; usb"
+          style="width:100%; height:500px; border:0; border-radius: 4px; overflow:hidden;"
+          sandbox="allow-modals allow-forms allow-popups allow-scripts allow-same-origin"></iframe>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+                ## ASM.js
+              </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+              ## ASM.js
+              asm.js是Mozilla在13年发布的一款中间语言。目的是采用C等变成语言来编译成带有类型信息的JS，以便于js编译器(eg: V8 TurboFan)进行AOT优化 
+
+              asm.js是js的严格子集
+            </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+          ## ASM.js
+          ```js
+          var asm = (function(stdlib, foreign, heap) {
+            'use asm';
+            function __z3addii($0, $1) {
+              $0 = $0|0; // $0 为整型
+              $1 = $1|0; // $1 为整型
+              var $2 = 0, label = 0, sp = 0;
+              $2 = (($1) + ($0))|0;
+              return ($2|0); // 返回值被声明为整型
+            }
+            return {
+              add: __z3addii
+            }
+          })(window, null, new ArrayBuffer(0x10000));
+          ```
+      </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+                  ## ASM.js
+                  1. Annotation: `x|0` [32整型]， `+x` [双精度浮点]，`(x)` [单精度浮点] 只能标记数值
+                  2. stdlib: 一个包含js内置标准库的引用对象，一般可以传window
+                  3. foreign： 外部自定义js方法的引用。
+                  4. heap： 所有asm模块外部数据都要存放在这里面才能被asm模块读取
+                </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+            ## WebAssembly
+          </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+          ASM.js语法太简单，限制很多（严格js子集）,无法做进一步的效率优化
+          1. 强类型 (完全的类型支持，不需要动态推断)
+          2. 体积小 (二进制，信息密度高)
+          3. 高效率 （Opcode接近底层指令，在不同平台上速度接近原生应用)
+          4. 通用，可移植
+          5. 安全 (专为web设计)
+          </script>
+      </section>
+
+      <section data-background="#43a047">
+        <h2 style="color:#fff">Compilation</h2>
+      </section>
+      <section>
+        <h2>LLVM</h2>
+        <img style="position: absolute;
+        right: 0;
+        height: 399px;
+        max-width: none;
+        max-height: none;
+        top: -50%;"
+          src="https://upload.wikimedia.org/wikipedia/en/thumb/4/4c/LLVM_Logo.svg/1920px-LLVM_Logo.svg.png" />
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+                    ### LLVM
+                    llvm(low level virtual machine) 通用编译器基础设施，可以用它来开发编译器的前端和后端。目前支持了Python、Ruby、Rust、Scala等语言
+1. 前端：将程序设计语言转化成中间形式IR （C/C++,Haskell, rust, Swift等)
+3. 后端：指令集的支持（ARM、Qualcomm Hexagon、MIPS等）
+                  </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+                      ### [LLVM IR](https://llvm.org/docs/LangRef.html)
+                      LLVM的核心是中间端表达式（Intermediate Representation，IR），它是一种强类型的精简指令集。具体有三种表达形式：
+                      1. 内存中的C++对象
+                      2. 可读的文本格式(.ll)
+                      3. 序列化后的bitcode格式(.bc)
+                    </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+                        ### LLVM
+                        ![](https://raw.githubusercontent.com/stkevintan/pico/master/38aab1f7.png)
+                        1. 前端(Frontend): 源码 -> IR
+                        2. 优化(Optimizer):IR优化
+                        3. 后端(Backend): IR到机器码(target=x86/wasm32...)
+                        4. 连接器(Linker): 链接资源(静态链接，动态链接)
+                      </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+              ## Emscripten for ASM.js
+            </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+         Emscripten是官方基于LLVM构建的将C/C++代码转译成asmjs的工具链。
+          1. 前端（emcc,Emscripten Compiler Frontend)： 将C/C++编译成LLVM的IR
+          2. 后端（Fastcomp) 将LLVM中间代码编译到目标语言（js）          
+        </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+              ## Binaryen
+            </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+            wasm官方的一套工具链，提供了一份简洁binaryen IR与对应的后端, 目前基于binaryen的编译工具有：
+            1. AssemblyScript: Typescript
+            2. Asterius: Haskell
+            3. asm2wasm: asm.js
+            4. Emscripten
+          </script>
+      </section>
+      <section data-markdown class="small-li">
+        <script type="text/template">
+            ### Compile to WebAssembly ?
+            #### Ancient Way: 
+            ```
+            C/C++ - {Clang} -> LLVM IR - {llc} -> *.s - {s2wasm} -> wasm 
+            ```
+            #### Old Way: 
+            ```
+            C/C++ - {emcc/Fastcomp} -> ASM.js - {asm2wasm} -> wasm
+            ```
+            #### Modern Way (2019.3+): 
+            ```
+            C/C++ - {Clang} -> LLVM IR - {llc && wasmld (from LLVM 8)} -> wasm  
+            ```
+            1. [wasm object file linking spec](https://github.com/WebAssembly/tool-conventions/blob/master/Linking.md)
+            2. [llvm wasm lld port doc](https://lld.llvm.org/WebAssembly.html)
+
+          </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+            ## Exmaples
+            [wasm-tutorial](https://github.com/stkevintan/wasm-tutorial)
+          </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+          ### What about libc or libc++
+          1. emcc(dlmalloc): [GitHub](https://github.com/emscripten-core/emscripten/blob/incoming/src/library_syscall.js)
+          2. wasmception(musl-libc): [GitHub](https://github.com/yurydelendik/wasmception) [demo](https://webassembly.studio/?f=zusgrp6mjtn)
+          3. wasi(dlmalloc): [GitHub](https://github.com/CraneStation/wasi-libc)
+          4. rustc(dlmallow, wee_alloc)
+
+          ![wee_alloc](https://raw.githubusercontent.com/stkevintan/pico/master/20190917173714.png)
+        </script>
+      </section>
+
+      <section data-background="#43a047">
+        <h2 style="color:#fff">Basic API</h2>
+      </section>
+
+      <section data-markdown class="full">
+        <script type="text/template">
+            ```ts
+            //async
+WebAssembly.compile(bufferSource: ArrayBuffer): Promise<WebAssembly.Module>
+WebAssembly.instantiate(bufferSource: ArrayBuffer, importObj?: any): Promise<{
+  module: WebAssembly.Module, 
+  instance: WebAssembly.Instance
+}>
+WebAssembly.instantiate(module: WebAssembly.Module, importObj?: any): Promise<WebAssembly.Instance>
+// 请求头：Context-type: application/wasm
+WebAssembly.compileStreaming(source: Promise<Responce>): Promise<WebAssembly.Module>
+
+//sync
+new WebAssembly.Module(bufferSource: ArrayBuffer)
+new WebAssembly.Instance(module: WebAssembly.Module, importObj?: any)
+
+// helper
+type Kind = "function" | "table" | "memory" | "global"
+WebAssembly.Module.customSections(module: WebAssembly.Module, sectionName: string): ArrayBuffer[]
+WebAssembly.Module.exports(module: WebAssembly.Module): { name: string, kind: Kind }][]
+WebAssembly.Module.imports(module: WebAssembly.Module): { module: string, name: string, kind: Kind }][]
+
+// validation and error
+WebAssembly.validate(bufferSource: ArrayBuffer):boolean
+
+interface CommonError {
+  message: string
+  filename: string
+  lineNumber: number
+}
+new WebAssembly.CompileError(message: string, fileName: string, lineNumber: number) // 解码，验证阶段
+new WebAssembly.LinkError(message: string, fileName: string, lineNumber: number)  // 实例化阶段
+new WebAssembly.RuntimeError(message: string, fileName: string, lineNumber: number) // 运行阶段
+            ```
+            </script>
+      </section>
+
+      <section data-markdown>
+        <script type="text/template">
+            ### Async Example
+            ```ts
+            fetch('./index.wasm').then(response =>
+              response.arrayBuffer()
+            ).then(bytes => WebAssembly.instantiate(bytes, {
+              env: {
+                yyy: xxx
+              }
+            })).then(wasm => {
+              const { module, instance } = wasm;
+            }).catch(console.error);
+            ```
+          </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+            ### Stream Example
+            ```ts
+            const source = fetch('./index.wasm')
+            WebAssembly.compileStreaming(source).then(module =>
+              WebAssembly.instantiate(module, {
+                env: {
+                  xxx: yyy
+                }
+              })
+            ).then(instance => {
+              //xxx
+            }).catch(console.error);
+            ```
+          </script>
+      </section>
+
+      <section data-markdown>
+        <script type="text/template">
+              ### Sync Example
+              ```ts
+              const buffer = fetchSync('./index.wasm');
+              const module = new WebAssembly.Module(buffer);
+              const instance = new WebAssembly.Instance(module, {xxx});
+              ```
+            </script>
+      </section>
+
+      <section data-background="#43a047">
+        <h2 style="color:#fff">WASM 1.0 Spec: Design</h2>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+          ### Operand Stack
+          WASM是由一系列的指令构成，计算模型为“堆栈式虚拟机”，堆栈机实现简单，执行效率较高。  
+          指令可以对操作堆栈机中的数值进行两种基本操作：
+          1. 消耗指令参数 -> pop
+          2. 返回计算结果 -> push
+
+
+          <br />
+          <br />
+          <small>目前Spec规定单个指令最多只能返回一个结果</small>
+        </script>
+      </section>
+      <section>
+        <img src="https://raw.githubusercontent.com/stkevintan/pico/master/20190917213102.png" />
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+              ### Structure
+              ![](https://raw.githubusercontent.com/stkevintan/pico/master/949ac4f5.png)
+            </script>
+      </section>
+      <section data-background="#43a047">
+        <h2 style="color:#fff">WASM 1.0 Spec: Instruction</h2>
+      </section>
+      <section data-markdown data-separator-notes="^Note:">
+        <script type="text/template">
+                ### Types
+$$
+\begin{array}{lll}
+ {\mathit{resulttype}} &::=&
+  [{\mathit{valtype}}^?] \\
+\end{array}
+$$
+
+$$
+\begin{array}{lll}
+{\mathit{valtype}} &::=&
+  {\mathsf{i32}} ~ | ~ {\mathsf{i64}} ~ | ~ {\mathsf{f32}} ~ | ~ {\mathsf{f64}} \\
+\end{array}
+$$
+
+$$
+\begin{array}{lll}
+\mathit{functype} &::=&
+  [{\mathit{vec}}({\mathit{valtype}})]{\rightarrow} [{\mathit{vec}}({\mathit{valtype}})] \\
+\end{array}
+$$
+
+<small>`i32`和`i64`代表着32和64位的整数，i是interpretation的意思，在具体的操作中可以解释为signed或者unsigned</small><br/>
+<small>$vec(x)$ 意思为一个x的序列，序列长度小于$2^{32}$</small><br/>
+<small>$|t|$ 一般用来表示t的字节宽(bit width), $|i32| = |f32| = 32$ ，$|i64| = |f64|  = 64$</small>
+Note:
+The types 𝗂𝟥𝟤 and 𝗂𝟨𝟦 classify 32 and 64 bit integers, respectively. Integers are not inherently signed or unsigned, their interpretation is determined by individual operations.
+ </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+
+$$
+\begin{array}{lll}
+ {\mathit{limits}} &::=&
+  \{ {\mathsf{min}} ~ {\mathit{u32}}, {\mathsf{max}} ~ {\mathit{u32}}^? \} \\
+\end{array}
+$$
+$$
+\begin{array}{lll}
+ {\mathit{memtype}} &::=&
+  {\mathit{limits}} \\
+\end{array}
+$$
+$$
+\begin{array}{llll}
+ {\mathit{tabletype}} &::=&
+  {\mathit{limits}} ~ {\mathit{elemtype}} \\\\
+ {\mathit{elemtype}} &::=&
+  {\mathsf{funcref}} \\
+\end{array}
+$$
+<small>memory与table最多只能存在一个</small><br/>
+<small>memory是一块线性的虚拟内存，limit的单位是64kb</small><br/>
+<small>$funcref$ 是所有函数类型的集合，某些地方也写为$anyfunc$</small>
+<small>table可以理解为一个函数指针构成的表,将来可能会包含更多的类型</small>
+              </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+                  $$
+\begin{array}{lll}
+ {\mathit{globaltype}} &::=&
+  {\mathit{mut}} ~ {\mathit{valtype}} \\\\
+ {\mathit{mut}} &::=&
+  {\mathsf{const}} ~ | ~
+  {\mathsf{var}} \\\\
+\end{array}
+$$
+
+$$
+\begin{array}{llll}
+ {\mathit{externtype}} &::=&
+  {\mathsf{func}} ~ {\mathit{functype}} ~ | ~
+  {\mathsf{table}} ~ {\mathit{tabletype}} ~ | ~ \\\\
+  & &{\mathsf{mem}} ~ {\mathit{memtype}} ~ | ~
+  {\mathsf{global}} ~ {\mathit{globaltype}} 
+\end{array}
+$$
+                </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+          ### Numeric Instructions
+<div style="font-size: 18px;">
+`$$
+                \begin{aligned}
+                \begin{array}{llcl}
+                 &\mathit{nn}, \mathit{mm} &::=&
+                  \mathsf{32} ~|~ \mathsf{64} \\
+                 &{\mathit{sx}} &::=&
+                  \mathsf{u} ~|~ \mathsf{s} \\
+                 &{\mathit{instr}} &::=&
+                  \mathsf{i}\mathit{nn}\mathsf{.}{\mathsf{const}}~{{\mathit{nn}}} ~|~
+                  \mathsf{f}\mathit{nn}\mathsf{.}{\mathsf{const}}~{{{\mathit{f}}}{\mathit{nn}}} \\&&|&
+                  \mathsf{i}\mathit{nn}\mathsf{.}{\mathit{iunop}} ~|~
+                  \mathsf{f}\mathit{nn}\mathsf{.}{\mathit{funop}} \\&&|&
+                  \mathsf{i}\mathit{nn}\mathsf{.}{\mathit{ibinop}} ~|~
+                  \mathsf{f}\mathit{nn}\mathsf{.}{\mathit{fbinop}} \\&&|&
+                  \mathsf{i}\mathit{nn}\mathsf{.}{\mathit{itestop}} \\&&|&
+                  \mathsf{i}\mathit{nn}\mathsf{.}{\mathit{irelop}} ~|~
+                  \mathsf{f}\mathit{nn}\mathsf{.}{\mathit{frelop}} \\&&|&
+                  \mathsf{i32.}{\mathsf{wrap}}\mathsf{\_i64} ~|~
+                  \mathsf{i64.}{\mathsf{extend}}\mathsf{\_i32}\mathsf{\_}{\mathit{sx}} ~|~
+                  \mathsf{i}\mathit{nn}\mathsf{.}{\mathsf{trunc}}\mathsf{\_f}\mathit{mm}\mathsf{\_}{\mathit{sx}} \\&&|&
+                  \mathsf{f32.}{\mathsf{demote}}\mathsf{\_f64} ~|~
+                  \mathsf{f64.}{\mathsf{promote}}\mathsf{\_f32} ~|~
+                  \mathsf{f}\mathit{nn}\mathsf{.}{\mathsf{convert}}\mathsf{\_i}\mathit{mm}\mathsf{\_}{\mathit{sx}} \\&&|&
+                  \mathsf{i}\mathit{nn}\mathsf{.}{\mathsf{reinterpret}}\mathsf{\_f}\mathit{nn} ~|~
+                  \mathsf{f}\mathit{nn}\mathsf{.}{\mathsf{reinterpret}}\mathsf{\_i}\mathit{nn} \\&&|&
+                  \dots \\
+                 &{\mathit{iunop}} &::=&
+                  \mathsf{clz} ~|~
+                  \mathsf{ctz} ~|~
+                  \mathsf{popcnt} \\
+                 &{\mathit{ibinop}} &::=&
+                  \mathsf{add} ~|~
+                  \mathsf{sub} ~|~
+                  \mathsf{mul} ~|~
+                  \mathsf{div\_}{\mathit{sx}} ~|~
+                  \mathsf{rem\_}{\mathit{sx}} \\&&|&
+                  \mathsf{and} ~|~
+                  \mathsf{or} ~|~
+                  \mathsf{xor} ~|~
+                  \mathsf{shl} ~|~
+                  \mathsf{shr\_}{\mathit{sx}} ~|~
+                  \mathsf{rotl} ~|~
+                  \mathsf{rotr} \\
+                 &{\mathit{funop}} &::=&
+                  \mathsf{abs} ~|~
+                  \mathsf{neg} ~|~
+                  \mathsf{sqrt} ~|~
+                  \mathsf{ceil} ~|~
+                  \mathsf{floor} ~|~
+                  \mathsf{trunc} ~|~
+                  \mathsf{nearest} \\
+                &{\mathit{fbinop}} &::=&
+                  \mathsf{add} ~|~
+                  \mathsf{sub} ~|~
+                  \mathsf{mul} ~|~
+                  \mathsf{div} ~|~
+                  \mathsf{min} ~|~
+                  \mathsf{max} ~|~
+                  \mathsf{copysign} \\
+                 &{\mathit{itestop}} &::=&
+                  \mathsf{eqz} \\
+                 &{\mathit{irelop}} &::=&
+                  \mathsf{eq} ~|~
+                  \mathsf{ne} ~|~
+                  \mathsf{lt\_}{\mathit{sx}} ~|~
+                  \mathsf{gt\_}{\mathit{sx}} ~|~
+                  \mathsf{le\_}{\mathit{sx}} ~|~
+                  \mathsf{ge\_}{\mathit{sx}} \\
+                 &{\mathit{frelop}} &::=&
+                  \mathsf{eq} ~|~
+                  \mathsf{ne} ~|~
+                  \mathsf{lt} ~|~
+                  \mathsf{gt} ~|~
+                  \mathsf{le} ~|~
+                  \mathsf{ge} \\
+                \end{array}
+                \end{aligned}
+                $$`
+</div>
+                  </script>
+      </section>
+      <section data-markdown style="font-size: 30px;">
+        <script type="text/template">
+                      数值指令可以按数值类型归类，对于每一种类型，都存在着下面几个子类型：
+1. Contants: 返回一个静态常量
+2. Unary Operations: 消耗一个操作数并且产生一个相应类型的结果
+3. Binary Operations:消耗两个操作数并且产生一个相应类型的结果
+4. Tests: 消耗一个操作数，产生一个Boolean interger的结果 
+5. Comparisons: 消耗两个操作数，产生一个Boolean integer结果
+6. Conversions: 消耗一个某种类型的值，产生一个其他种类的结果(原类型标志在"_"后面)
+                    </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+                        ### Parametric Instructions
+                        下面的指令可以操作栈上任意值类型的操作数：
+`$$
+\begin{array}{llcl}
+ &{\mathit{instr}} &::=&
+  \dots \\&&|&
+  {\mathsf{drop}} \\&&|&
+  {\mathsf{select}}
+\end{array}
+$$`
+1. `drop`指令简单的丢一个操作数
+2. `select`指令将基于第三台操作数是否为0的条件来选择前两个操作数其中之一
+                      </script>
+      </section>
+      <section data-markdown class="small-li">
+        <script type="text/template">
+          ### Variable Instructions
+
+          变量指令需要考虑是从`local`还是从`global`获取变量  
+          `$$
+          \begin{array}{llcl}
+           & {\mathit{instr}} &::=&
+            \dots \\&&|&
+            {\mathsf{local.get}}~{\mathit{localidx}} \\&&|&
+            {\mathsf{local.set}}~{\mathit{localidx}} \\&&|&
+            {\mathsf{local.tee}}~{\mathit{localidx}} \\&&|&
+            {\mathsf{global.get}}~{\mathit{globalidx}} \\&&|&
+            {\mathsf{global.set}}~{\mathit{globalidx}} \\
+          \end{array}
+          $$`
+          1. `local.tee`指令跟`local.set`指令相似，但不会消耗操作数
+                        </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+          ### Memory Instructions
+          <div style="font-size: 18px">
+          `$$
+          \begin{array}{llcl}
+           & {\mathit{memarg}} &::=&
+            \{ {\mathsf{offset}}~{\mathit{u32}}, {\mathsf{align}}~{\mathit{u32}} \} \\
+           & {\mathit{instr}} &::=&
+            \dots \\&&|&
+            \mathsf{i}\mathit{nn}\mathsf{.}{\mathsf{load}}~{\mathit{memarg}} ~|~
+            \mathsf{f}\mathit{nn}\mathsf{.}{\mathsf{load}}~{\mathit{memarg}} \\&&|&
+            \mathsf{i}\mathit{nn}\mathsf{.}{\mathsf{store}}~{\mathit{memarg}} ~|~
+            \mathsf{f}\mathit{nn}\mathsf{.}{\mathsf{store}}~{\mathit{memarg}} \\&&|&
+            \mathsf{i}\mathit{nn}\mathsf{.}{\mathsf{load}}\mathsf{8\_}{\mathit{sx}}~{\mathit{memarg}} ~|~
+            \mathsf{i}\mathit{nn}\mathsf{.}{\mathsf{load}}\mathsf{16\_}{\mathit{sx}}~{\mathit{memarg}} ~|~
+            \mathsf{i64.}{\mathsf{load}}\mathsf{32\_}{\mathit{sx}}~{\mathit{memarg}} \\&&|&
+            \mathsf{i}\mathit{nn}\mathsf{.}{\mathsf{store}}\mathsf{8}~{\mathit{memarg}} ~|~
+            \mathsf{i}\mathit{nn}\mathsf{.}{\mathsf{store}}\mathsf{16}~{\mathit{memarg}} ~|~
+            \mathsf{i64.}{\mathsf{store}}\mathsf{32}~{\mathit{memarg}} \\&&|&
+            {\mathsf{memory.size}} \\&&|&
+            {\mathsf{memory.grow}} \\
+          \end{array}
+          $$`
+          </div>
+                          </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+          ### Control Instructions
+          <div style="font-size: 25px;">
+          `$$
+          \begin{array}{llcl}
+          & {\mathit{instr}} &::=&
+            \dots \\&&|&
+            {\mathsf{nop}} \\&&|&
+            {\mathsf{unreachable}} \\&&|&
+            {\mathsf{block}}~{\mathit{resulttype}}~{\mathit{instr}}^\ast~{\mathsf{end}} \\&&|&
+            {\mathsf{loop}}~{\mathit{resulttype}}~{\mathit{instr}}^\ast~{\mathsf{end}} \\&&|&
+            {\mathsf{if}}~{\mathit{resulttype}}~{\mathit{instr}}^\ast~{\mathsf{else}}~{\mathit{instr}}^\ast~{\mathsf{end}} \\&&|&
+            {\mathsf{br}}~{\mathit{labelidx}} \\&&|&
+            {\mathsf{br\_if}}~{\mathit{labelidx}} \\&&|&
+            {\mathsf{br\_table}}~{\mathit{vec}}({\mathit{labelidx}})~{\mathit{labelidx}} \\&&|&
+            {\mathsf{return}} \\&&|&
+            {\mathsf{call}}~{\mathit{funcidx}} \\&&|&
+            {\mathsf{call\_indirect}}~{\mathit{typeidx}} \\
+          \end{array}
+          $$`
+          </div>
+                            </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+                                ### Control Instructions
+                                1. `nop`指令不做任何事情
+2. `unreachable`指令将会触发一个无条件的trap
+3. `block`,`loop`,`if` 指令是结构化指令。他们包含一系列内嵌(nested)指令,称为(blocks)
+4. `else`, `end`指令为虚指令，作为结构化指令的标记
+5.  每个结构化指令都会引入一个隐式标签(label)
+                              </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+                                  ### br 无条件跳转
+                                  ```
+                                  block
+                                    ...
+                                    br 0  ;; 终端label为0的block
+                                    nop   ;; 不会被执行的代码
+                                  end
+                                  ```
+                                </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+                                    ### br_if 条件跳转
+                                    ```
+                                    block
+                                      get_local $var
+                                      br_if 0
+                                      nop  ;;如果$var值为0则执行这条语句
+                                    end
+                                    ;; 如果$var不为0则从次开始执行
+                                    ```
+                                  </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+                                      ### loop 循环
+                                      loop需要使用br_xx指令来进行回溯：
+
+                                      ```
+                                      loop
+                                        nop
+                                        ;; A，只会执行一次
+                                      end
+                                        ;; A执行完接着执行
+                                      ```
+                                      ```
+                                      loop
+                                        ...
+                                        get_local $var
+                                        br_if 0  ;; 当$var不为0，loop将会再次从头开始执行，do ... while()
+                                      end
+                                      ```
+            </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+                                        ### Modules
+WebAssembly程序由模块来组织，模块是wasm部署，加载，编译的单位。一个模块包括：
+<div style="font-size: 20px">
+`$$
+\begin{array}{lllll}
+& {\mathit{module}} &::=& \{ &
+  {\mathsf{types}}~{\mathit{vec}}({\mathit{functype}}), \\&&&&
+  {\mathsf{funcs}}~{\mathit{vec}}({\mathit{func}}), \\&&&&
+  {\mathsf{tables}}~{\mathit{vec}}({\mathit{table}}), \\&&&&
+  {\mathsf{mems}}~{\mathit{vec}}({\mathit{mem}}), \\&&&&
+  {\mathsf{globals}}~{\mathit{vec}}({\mathit{global}}), \\&&&&
+  {\mathsf{elem}}~{\mathit{vec}}({\mathit{elem}}), \\&&&&
+  {\mathsf{data}}~{\mathit{vec}}({\mathit{data}}), \\&&&&
+  {\mathsf{start}}~{\mathit{start}}^?, \\&&&&
+  {\mathsf{imports}}~{\mathit{vec}}({\mathit{import}}), \\&&&&
+  {\mathsf{exports}}~{\mathit{vec}}({\mathit{export}}) \quad\} \\
+\end{array}
+$$`
+</div>
+                                      </script>
+      </section>
+      <section data-background="#43a047">
+        <h2 style="color:#fff">WASM 1.0 Spec: Validation</h2>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+### Type System
+类型系统的模型也是一个栈，成为类型栈，与操作数栈（operand stack)类型，不过只有类型，没有具体数值  
+<img src="https://raw.githubusercontent.com/stkevintan/pico/master/20190917225917.png" height="400px;"/>
+</script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+### Formal Notation
+`$$\frac{
+  \mathit{premise}_1 \qquad \mathit{premise}_2 \qquad \dots \qquad \mathit{premise}_n
+}{
+  \mathit{conclusion}
+}$$`
+
+`$$
+\frac{
+}{
+  C \vdash \mathsf{i32}.\mathsf{add} : [\mathsf{i32}~\mathsf{i32}] \rightarrow[\mathsf{i32}]
+}
+$$`
+
+`$$
+\frac{
+  C.{\mathsf{locals}}[x] = t
+}{
+  C \vdash {\mathsf{local.get}}~x : [] {\rightarrow} [t]
+}
+$$`
+
+`$$
+\frac{
+  C,{\mathsf{label}}\,[t^?] \vdash {\mathit{instr}}^\ast : [] {\rightarrow} [t^?]
+}{
+  C \vdash {\mathsf{block}}~[t^?]~{\mathit{instr}}^\ast~{\mathsf{end}} : [] {\rightarrow} [t^?]
+}
+$$`
+</script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+### Polymorphic
+1. 值多态`value-polymorphic`: 其中一些值或者操作数是不限定的，比如drop，select
+2. 栈多态`stack-polymorphic`: 对栈的状态是不限定的，比如所有控制指令: `unreachable`,`br`,`br_table`和`return`
+
+</script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+### Unreachable
+Unreachable虽然不会执行，但也要进行类型检查: 如果存在一个满足当前指令块的栈状态的话那么就合法，否则就不合法：
+`$$
+{\mathsf{unreachable}}~~{\mathsf{i32}}.{\mathsf{add}}
+$$`
+
+是合法的，因为当一个栈状态为`$[\mathsf{i32},\mathsf{i32}]$`的时候，`unreachable`的语句能够顺利执行。
+
+`$$
+{\mathsf{unreachable}}~~({\mathsf{i64}}.{\mathsf{const}}~0)~~{\mathsf{i32}}.{\mathsf{add}}
+$$`
+
+是不合法的，因为找不到一个栈能够让这个指令块正常执行。
+</script>
+      </section>
+      <section data-background="#43a047">
+        <h2 style="color:#fff">WASM 1.0 Spec: Memory Model</h2>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+### 虚拟内存（Virtual Memory）
+计算机的段页式的内存模型：
+![](https://raw.githubusercontent.com/stkevintan/pico/master/f14d95f3.png)
+</script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+### 虚拟内存（Virtual Memory）
+计算机的段页式的内存模型：
+![](https://raw.githubusercontent.com/stkevintan/pico/master/98d3c30c.png)
+
+<small>应用程序使用的都是操作系统分配好的虚拟内存，称为虚拟地址空间(Virtual Address Space)</small>
+</script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+                          ### Memory Layout of Wasm Module
+                          ![](https://raw.githubusercontent.com/stkevintan/pico/master/9726a076.png)
+                        </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+          ### Memory Alignment
+          - 如果一个内存的访问有效地址（Effective address）是储存器访问的对齐属性的倍数，那么这次储存器访问就被称为是对齐的，否则是不对齐。  
+          - 对齐与不对齐的访问具有相同的行为，但是对齐会提高CPU的处理速度。
+          - 有效地址，也即是当前访问的真实地址（相对于offset来说）
+`$effective\_adress = address\_operand + offset$`
+
+        </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+            ### Aligned Example
+            ```
+i32.const 3       // address_operand = 3
+i64.const 1234    // value
+i64.store16 1 3 // alignment=1, offset=3, effective_address = 3 + 3 = 6
+```
+![](https://rsms.me/res/wasm/memory-1.svg)
+
+          </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+              ### Misaligned Example
+        ```
+        i32.const 3
+        i64.const 1234
+        i64.store16 2 3 // alignment=2
+        ```
+![](https://rsms.me/res/wasm/memory-2.svg)
+            </script>
+      </section>
+
+      <section data-background="#43a047">
+        <h2 style="color:#fff">WASM 1.0 Spec: Binary Format</h2>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+            ### 字节序
+            1. 小端序(little endian): 数字低位存储在内存低位
+            2. 大端序(big endian): 数字低位存储在内存高位
+
+            <div style="display:flex; justify-content: space-around;">
+              <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/ed/Little-Endian.svg/560px-Little-Endian.svg.png"/>
+              <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/54/Big-Endian.svg/560px-Big-Endian.svg.png" />
+            </div>
+          </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+              ### Instructions Encoding
+              由于Wasm 1.0可用虚拟指令数量小于256个，因此目前虚拟指令全部硬编码成了固定1字节的Opcode，如：
+              `$$
+                \begin{array}{llcll}
+                &{\mathtt{valtype}} &::=&
+                  {\mathtt{0x7F}}&\Rightarrow& {\mathsf{i32}} \\ &&|&
+                  {\mathtt{0x7E}} &\Rightarrow& {\mathsf{i64}} \\ &&|&
+                  {\mathtt{0x7D}} &\Rightarrow& {\mathsf{f32}} \\ &&|&
+                  {\mathtt{0x7C}} &\Rightarrow& {\mathsf{f64}} \\
+                \end{array}
+              $$`
+            </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+          ### 常见编码方式：
+          1. Bytes: bytes encoding themselves
+          2. Name: 直接由UTF-8编码
+          3. Float：由IEEE 754-2019规范编码，以小端序储存
+          4. Integers: LEB128变长编码
+        </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+                  ### LEB128 for unsigned
+                  ```
+624485
+MSB ------------------ LSB
+      10011000011101100101  In raw binary
+     010011000011101100101  Padded to a multiple of 7 bits
+ 0100110  0001110  1100101  Split into 7-bit groups
+00100110 10001110 11100101  Add high 1 bits on all but last (most significant) group to form bytes
+    0x26     0x8E     0xE5  In hexadecimal
+
+→ 0xE5 0x8E 0x26            Output stream (LSB to MSB)
+```
+                </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+                    ### LEB128 for signed
+                    #### signed LEB128
+```
+-123456
+MSB ------------------ LSB 
+         11110001001000000  Binary encoding of 123456
+     000011110001001000000  As a 21-bit number
+     111100001110110111111  Flipping all bits (one’s complement)
+     111100001110111000000  Adding one (two’s complement)
+ 1111000  0111011  1000000  Split into 7-bit groups
+01111000 10111011 11000000  Add high 1 bits on all but last (most significant) group to form bytes
+    0x78     0xBB     0xC0  In hexadecimal
+
+→ 0xC0 0xBB 0x78            Output stream (LSB to MSB)
+```
+                  </script>
+      </section>
+      <section data-markdown class="full">
+        <script type="text/template">
+                      ### Example
+```
+~: hexdump -C index.wasm
+00000000  00 61 73 6d 01 00 00 00  01 10 03 60 00 00 60 02  |.asm.......`..`.|
+00000010  7f 7f 01 7f 60 02 7c 7c  01 7c 03 05 04 00 01 02  |....`.||.|......|
+00000020  01 04 05 01 70 01 01 01  05 03 01 00 02 06 15 03  |....p...........|
+00000030  7f 01 41 80 88 04 0b 7f  00 41 80 88 04 0b 7f 00  |..A......A......|
+00000040  41 80 08 0b 07 48 06 06  6d 65 6d 6f 72 79 02 00  |A....H..memory..|
+00000050  0b 5f 5f 68 65 61 70 5f  62 61 73 65 03 01 0a 5f  |.__heap_base..._|
+00000060  5f 64 61 74 61 5f 65 6e  64 03 02 08 5f 5a 33 61  |_data_end..._Z3a|
+00000070  64 64 69 69 00 01 08 5f  5a 33 61 64 64 64 64 00  |ddii..._Z3adddd.|
+00000080  02 0a 5f 5a 35 6d 69 6e  75 73 69 69 00 03 0a 1c  |.._Z5minusii....|
+00000090  04 02 00 0b 07 00 20 01  20 00 6a 0b 07 00 20 00  |...... . .j... .|
+000000a0  20 01 a0 0b 07 00 20 00  20 01 6b 0b 00 50 04 6e  | ..... . .k..P.n|
+000000b0  61 6d 65 01 49 04 00 11  5f 5f 77 61 73 6d 5f 63  |ame.I...__wasm_c|
+000000c0  61 6c 6c 5f 63 74 6f 72  73 01 0d 61 64 64 28 69  |all_ctors..add(i|
+000000d0  6e 74 2c 20 69 6e 74 29  02 13 61 64 64 28 64 6f  |nt, int)..add(do|
+000000e0  75 62 6c 65 2c 20 64 6f  75 62 6c 65 29 03 0f 6d  |uble, double)..m|
+000000f0  69 6e 75 73 28 69 6e 74  2c 20 69 6e 74 29        |inus(int, int)|
+```
+                    </script>
+      </section>
+
+      <section data-background="#43a047">
+        <h2 style="color:#fff">WebAssembly Post MVC</h2>
+      </section>
+
+      <section data-markdown>
+        <script type="text/template">
+                        1. Interface Types: [Proposals](https://github.com/WebAssembly/interface-types/blob/master/proposals/interface-types/Explainer.md)
+                        2. GC: [Proposals](https://github.com/WebAssembly/gc)
+                        3. SIMD: 128-bit SIMD support for WASM [Proposals](https://github.com/WebAssembly/simd/tree/master/proposals/simd)
+                        4. WASI: WebAssembly System Interface [Github](https://github.com/WebAssembly/WASI)
+                      </script>
+      </section>
+
+      <section data-background="#43a047">
+        <h2 style="color:#fff">WebAssembly with Rust</h2>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+                          ### wasm-bindgen
+                          Facilitating high-level interactions between Wasm modules and JavaScript.   
+                          [Game of Life](https://rustwasm.github.io/docs/book/game-of-life/rules.html)
+                        </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+                            ### [percy](https://github.com/chinedufn/percy)
+                            在Rust里造一个React轮子！
+                            1. Virtual DOM
+                            2. CSS in rust
+                            3. SSR
+                        
+                          </script>
+      </section>
+
+    </div>
+  </div>
+
+
+
+
+  <script src="js/reveal.js"></script>
+
+  <script>
+    // More info about config & dependencies:
+    // - https://github.com/hakimel/reveal.js#configuration
+    // - https://github.com/hakimel/reveal.js#dependencies
+    Reveal.initialize({
+      controls: true,
+      progress: true,
+      hash: true,
+      center: true,
+      transition: 'slide',
+      dependencies: [
+        { src: 'plugin/markdown/marked.js', condition: function () { return !!document.querySelector('[data-markdown]'); } },
+        { src: 'plugin/markdown/markdown.js', condition: function () { return !!document.querySelector('[data-markdown]'); } },
+        { src: 'plugin/notes/notes.js', async: true },
+        { src: 'plugin/highlight/highlight.js', async: true },
+        // MathJax
+        { src: 'plugin/math/math.js', async: true }
+      ]
+    });
+  </script>
+</body>
+
+</html>
